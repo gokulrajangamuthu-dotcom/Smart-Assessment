@@ -1,0 +1,18 @@
+{
+  "expo": {
+    "name": "SmartAssess",
+    "slug": "smart-assess-student",
+    "version": "1.0.0",
+    "orientation": "portrait",
+    "userInterfaceStyle": "light",
+    "android": {
+      "package": "com.gokulraj.smartassess",
+      "adaptiveIcon": {
+        "backgroundColor": "#1F4E78"
+      }
+    },
+    "splash": {
+      "backgroundColor": "#1F4E78"
+    }
+  }
+}
