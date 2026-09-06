@@ -1,12 +1,12 @@
 import { useState, useEffect, useRef } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { Search, Bell, MessageSquare, ChevronDown, User, LogOut } from 'lucide-react';
+import { Search, Bell, MessageSquare, ChevronDown, User, LogOut, Menu } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
 import api from '../api/client';
 import { clearFacultySession } from './Sidebar';
 import ThemeToggle from './ThemeToggle';
 
-export default function Header() {
+export default function Header({ onMenuToggle }) {
   const navigate = useNavigate();
   const adminName = localStorage.getItem('faculty_name') || 'Admin';
   const adminEmail = localStorage.getItem('faculty_email') || '';
@@ -80,49 +80,59 @@ export default function Header() {
   };
 
   return (
-    <header ref={headerRef} className="sticky top-0 z-10 bg-white/80 backdrop-blur border-b border-gray-100 h-16 flex items-center justify-between px-4 md:px-6 gap-4">
-      <div className="relative flex-1 max-w-md">
-        <Search size={16} className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400" />
-        <input
-          value={query}
-          onChange={(e) => setQuery(e.target.value)}
-          onFocus={() => query && setOpenMenu('search')}
-          placeholder="Search assessments, students, faculty…"
-          className="w-full bg-gray-50 border border-transparent focus:border-secondary focus:bg-white rounded-xl pl-9 pr-3 py-2 text-sm outline-none transition-smooth"
-        />
-        <AnimatePresence>
-          {openMenu === 'search' && query.trim() && (
-            <motion.div
-              initial={{ opacity: 0, y: -6 }}
-              animate={{ opacity: 1, y: 0 }}
-              exit={{ opacity: 0, y: -6 }}
-              className="absolute mt-2 w-full bg-white rounded-xl shadow-xl border border-gray-100 max-h-96 overflow-y-auto z-30"
-            >
-              {!hasResults && <p className="text-sm text-gray-400 text-center py-6">No matches for "{query}"</p>}
-              {results.assessments.length > 0 && (
-                <SearchGroup label="Assessments">
-                  {results.assessments.map((a) => (
-                    <SearchRow key={a.id} title={a.title} subtitle={a.departments?.code} onClick={() => { navigate('/admin/assessments'); setOpenMenu(null); }} />
-                  ))}
-                </SearchGroup>
-              )}
-              {results.students.length > 0 && (
-                <SearchGroup label="Students">
-                  {results.students.map((s) => (
-                    <SearchRow key={s.id} title={s.name} subtitle={s.register_no} onClick={() => { navigate('/admin/students'); setOpenMenu(null); }} />
-                  ))}
-                </SearchGroup>
-              )}
-              {results.faculty.length > 0 && (
-                <SearchGroup label="Faculty">
-                  {results.faculty.map((f) => (
-                    <SearchRow key={f.id} title={f.name} subtitle={f.email} onClick={() => { navigate('/admin/faculty'); setOpenMenu(null); }} />
-                  ))}
-                </SearchGroup>
-              )}
-            </motion.div>
-          )}
-        </AnimatePresence>
+    <header ref={headerRef} className="sticky top-0 z-10 bg-white/80 backdrop-blur border-b border-gray-100 h-16 flex items-center justify-between px-3 md:px-6 gap-2 md:gap-4">
+      <div className="flex items-center gap-2 flex-1 max-w-md">
+        <button
+          onClick={onMenuToggle}
+          className="p-2 -ml-1 rounded-xl text-gray-600 hover:bg-gray-100 md:hidden flex items-center justify-center shrink-0"
+          aria-label="Open menu"
+        >
+          <Menu size={20} />
+        </button>
+        <div className="relative flex-1">
+          <Search size={16} className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400" />
+          <input
+            value={query}
+            onChange={(e) => setQuery(e.target.value)}
+            onFocus={() => query && setOpenMenu('search')}
+            placeholder="Search..."
+            className="w-full bg-gray-50 border border-transparent focus:border-secondary focus:bg-white rounded-xl pl-9 pr-3 py-2 text-sm outline-none transition-smooth placeholder:text-gray-400"
+          />
+
+          <AnimatePresence>
+            {openMenu === 'search' && query.trim() && (
+              <motion.div
+                initial={{ opacity: 0, y: -6 }}
+                animate={{ opacity: 1, y: 0 }}
+                exit={{ opacity: 0, y: -6 }}
+                className="absolute mt-2 w-full bg-white rounded-xl shadow-xl border border-gray-100 max-h-96 overflow-y-auto z-30"
+              >
+                {!hasResults && <p className="text-sm text-gray-400 text-center py-6">No matches for "{query}"</p>}
+                {results.assessments.length > 0 && (
+                  <SearchGroup label="Assessments">
+                    {results.assessments.map((a) => (
+                      <SearchRow key={a.id} title={a.title} subtitle={a.departments?.code} onClick={() => { navigate('/admin/assessments'); setOpenMenu(null); }} />
+                    ))}
+                  </SearchGroup>
+                )}
+                {results.students.length > 0 && (
+                  <SearchGroup label="Students">
+                    {results.students.map((s) => (
+                      <SearchRow key={s.id} title={s.name} subtitle={s.register_no} onClick={() => { navigate('/admin/students'); setOpenMenu(null); }} />
+                    ))}
+                  </SearchGroup>
+                )}
+                {results.faculty.length > 0 && (
+                  <SearchGroup label="Faculty">
+                    {results.faculty.map((f) => (
+                      <SearchRow key={f.id} title={f.name} subtitle={f.email} onClick={() => { navigate('/admin/faculty'); setOpenMenu(null); }} />
+                    ))}
+                  </SearchGroup>
+                )}
+              </motion.div>
+            )}
+          </AnimatePresence>
+        </div>
       </div>
 
       <div className="flex items-center gap-1.5 md:gap-2">
