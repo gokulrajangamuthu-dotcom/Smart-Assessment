@@ -53,16 +53,23 @@ export default function StudentLogin() {
         />
 
         <button type="submit" disabled={loading} style={styles.button} className="transition-smooth hover:shadow-lg hover:-translate-y-0.5">
-          {loading ? 'Logging in...' : 'Login'}
+          {loading ? 'Logging in...' : 'Login as Student'}
         </button>
 
-        <p style={styles.linkSmall}>
-          <Link to="/student/forgot-password">Forgot password?</Link>
-        </p>
-
-        <p style={styles.linkSmall}>
-          <Link to="/">← Back to Home</Link>
-        </p>
+        <div style={styles.footerLinks}>
+          <p style={styles.linkSmall}>
+            <Link to="/student/forgot-password" style={{ color: '#1F4E78', textDecoration: 'none', fontWeight: 600 }}>Forgot password?</Link>
+          </p>
+          <p style={styles.linkSmall}>
+            New student? <Link to="/student/register" style={{ color: '#1F4E78', fontWeight: 600 }}>Register here</Link>
+          </p>
+          <p style={styles.linkSmall}>
+            Faculty / Admin? <Link to="/faculty/login" style={{ color: '#1F4E78', fontWeight: 600 }}>Staff Login</Link>
+          </p>
+          <p style={{ ...styles.linkSmall, marginTop: '12px' }}>
+            <Link to="/" style={{ color: '#888', textDecoration: 'none' }}>← Back to Home</Link>
+          </p>
+        </div>
       </form>
     </div>
   );

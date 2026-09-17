@@ -1,4 +1,5 @@
 import { useNavigate } from 'react-router-dom';
+import { clearFacultySession } from '../components/Sidebar';
 
 export default function FacultyProfile() {
   const navigate = useNavigate();
@@ -7,11 +8,7 @@ export default function FacultyProfile() {
   const deptCode = localStorage.getItem('faculty_department_code');
 
   const logout = () => {
-    localStorage.removeItem('faculty_token');
-    localStorage.removeItem('faculty_name');
-    localStorage.removeItem('faculty_is_admin');
-    localStorage.removeItem('faculty_department_name');
-    localStorage.removeItem('faculty_department_code');
+    clearFacultySession();
     navigate('/');
   };
 

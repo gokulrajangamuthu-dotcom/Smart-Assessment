@@ -66,15 +66,23 @@ export default function Login() {
           disabled={loading}
           className="w-full bg-primary text-white py-2 rounded-lg font-medium hover:bg-blue-900 hover:shadow-lg hover:-translate-y-0.5 transition-smooth disabled:opacity-50"
         >
-          {loading ? 'Logging in...' : 'Login'}
+          {loading ? 'Logging in...' : 'Login as Faculty'}
         </button>
 
-        <p className="text-center text-sm mt-4">
-          <Link to="/faculty/forgot-password" className="text-primary hover:underline">Forgot password?</Link>
-        </p>
-        <p className="text-center text-xs text-gray-400 mt-2">
-          Admin? <Link to="/admin/login" className="text-primary hover:underline">Login here</Link>
-        </p>
+        <div className="mt-5 pt-4 border-t border-gray-100 text-center space-y-2 text-xs">
+          <p>
+            <Link to="/faculty/forgot-password" className="text-primary hover:underline">Forgot password?</Link>
+          </p>
+          <p className="text-gray-500">
+            Admin? <Link to="/admin/login" className="text-primary font-semibold hover:underline">Login as Admin</Link>
+          </p>
+          <p className="text-gray-500">
+            Student? <Link to="/student/login" className="text-primary font-semibold hover:underline">Student Portal</Link>
+          </p>
+          <p className="pt-1">
+            <Link to="/" className="text-gray-400 hover:text-gray-600 hover:underline">← Back to Home</Link>
+          </p>
+        </div>
       </form>
     </div>
   );

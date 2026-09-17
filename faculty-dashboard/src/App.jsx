@@ -23,6 +23,7 @@ import FacultyStudentReview from './pages/FacultyStudentReview';
 import Messages from './pages/Messages';
 
 import StudentLogin from './pages/StudentLogin';
+import StudentRegister from './pages/StudentRegister';
 import StudentForgotPassword from './pages/StudentForgotPassword';
 import StudentAssessments from './pages/StudentAssessments';
 import StudentTakeAssessment from './pages/StudentTakeAssessment';
@@ -83,8 +84,14 @@ export default function App() {
         <Route path="/faculty/edit/:id" element={<FacultyPrivateRoute><EditAssessment /></FacultyPrivateRoute>} />
         <Route path="/faculty/review/:assessmentId/:studentId" element={<FacultyPrivateRoute><FacultyStudentReview /></FacultyPrivateRoute>} />
 
+        {/* Route aliases */}
+        <Route path="/login" element={<Navigate to="/faculty/login" replace />} />
+        <Route path="/student-login" element={<Navigate to="/student/login" replace />} />
+        <Route path="/student/dashboard" element={<Navigate to="/student/assessments" replace />} />
+
         {/* Student */}
         <Route path="/student/login" element={<StudentLogin />} />
+        <Route path="/student/register" element={<StudentRegister />} />
         <Route path="/student/forgot-password" element={<StudentForgotPassword />} />
         <Route path="/student/assessments" element={<StudentPrivateRoute><StudentAssessments /></StudentPrivateRoute>} />
         <Route path="/student/take/:assessmentId" element={<StudentPrivateRoute><StudentTakeAssessment /></StudentPrivateRoute>} />

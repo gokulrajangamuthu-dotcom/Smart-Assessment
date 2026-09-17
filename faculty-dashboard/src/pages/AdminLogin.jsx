@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { useNavigate } from 'react-router-dom';
+import { useNavigate, Link } from 'react-router-dom';
 import api from '../api/client';
 
 export default function AdminLogin() {
@@ -17,7 +17,7 @@ export default function AdminLogin() {
       const res = await api.post('/auth/faculty/login', { email, password });
 
       if (!res.data.faculty.is_admin) {
-        setError('This account does not have admin access.');
+        setError('This account is a Faculty account, not an Admin. Please use Faculty Login.');
         setLoading(false);
         return;
       }
@@ -37,7 +37,7 @@ export default function AdminLogin() {
   };
 
   return (
-    <div className="min-h-screen flex items-center justify-center bg-gradient-to-br from-slate-50 via-blue-50 to-violet-50">
+    <div className="min-h-screen flex items-center justify-center bg-gradient-to-br from-slate-50 via-blue-50 to-violet-50 p-4">
       <form onSubmit={handleLogin} className="bg-white p-8 rounded-xl shadow-md w-full max-w-sm animate-scale-in">
         <h1 className="text-2xl font-bold text-primary mb-1">SmartAssess</h1>
         <p className="text-gray-500 mb-6 flex items-center gap-1">🛡️ Admin Login</p>
@@ -69,6 +69,21 @@ export default function AdminLogin() {
         >
           {loading ? 'Logging in...' : 'Login as Admin'}
         </button>
+
+        <div className="mt-5 pt-4 border-t border-gray-100 text-center space-y-2 text-xs">
+          <p>
+            <Link to="/faculty/forgot-password" className="text-primary hover:underline">Forgot password?</Link>
+          </p>
+          <p className="text-gray-500">
+            Faculty? <Link to="/faculty/login" className="text-primary font-semibold hover:underline">Login as Faculty</Link>
+          </p>
+          <p className="text-gray-500">
+            Student? <Link to="/student/login" className="text-primary font-semibold hover:underline">Student Portal</Link>
+          </p>
+          <p className="pt-1">
+            <Link to="/" className="text-gray-400 hover:text-gray-600 hover:underline">← Back to Home</Link>
+          </p>
+        </div>
       </form>
     </div>
   );
