@@ -9,7 +9,20 @@ export function friendlyErrorMessage(err) {
     err?.message?.includes('fetch failed') || NETWORK_ERROR_CODES.includes(err?.cause?.code);
 
   if (isNetworkFailure) {
-    return 'Could not reach the database. Please check your internet connection and try again.';
+    return 'Could not reach the service. Please check your internet connection and try again.';
   }
-  return err.message;
+
+  if (typeof err?.message === 'string') {
+    try {
+      const parsed = JSON.parse(err.message);
+      if (parsed?.error?.message) {
+        return parsed.error.message;
+      }
+    } catch {
+      // Not JSON, continue with err.message
+    }
+  }
+
+  return err?.message || 'An unexpected error occurred.';
 }
+

@@ -1,9 +1,12 @@
 import { useEffect, useState } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import { BarChart, Bar, XAxis, YAxis, Tooltip, ResponsiveContainer, CartesianGrid } from 'recharts';
+import { FileSpreadsheet, FileText } from 'lucide-react';
 import api from '../api/client';
 import AnimatedCounter from '../components/AnimatedCounter';
 import ThemeToggle from '../components/ThemeToggle';
+import { exportAssessmentToExcel } from '../utils/exportExcel';
+import { exportAssessmentPdf } from '../utils/exportPdf';
 
 // Subject-aware icon + accent color, so each assessment card has its own identity
 const ACCENTS = [
@@ -328,11 +331,42 @@ export default function Dashboard() {
               </div>
             )}
             {!panelLoading && analytics && (
-              <div className="grid grid-cols-4 gap-4 animate-fade-in-up">
-                <StatCard label="Attempted" value={analytics.attempted} icon="🧑‍🎓" color="primary" />
-                <StatCard label="Average" value={analytics.average_score} icon="📊" color="accent" />
-                <StatCard label="Highest" value={analytics.highest_score} icon="🏆" color="amber" />
-                <StatCard label="Lowest" value={analytics.lowest_score} icon="📉" color="coral" />
+              <div className="space-y-4">
+                <div className="grid grid-cols-4 gap-4 animate-fade-in-up">
+                  <StatCard label="Attempted" value={analytics.attempted} icon="🧑‍🎓" color="primary" />
+                  <StatCard label="Average" value={analytics.average_score} icon="📊" color="accent" />
+                  <StatCard label="Highest" value={analytics.highest_score} icon="🏆" color="amber" />
+                  <StatCard label="Lowest" value={analytics.lowest_score} icon="📉" color="coral" />
+                </div>
+
+                <div className="flex items-center justify-between bg-white rounded-2xl shadow-sm p-4 border border-gray-100 flex-wrap gap-3">
+                  <div>
+                    <h3 className="text-sm font-bold text-gray-800">
+                      {assessments.find((a) => a.id === selected)?.title || 'Assessment Reports'}
+                    </h3>
+                    <p className="text-xs text-gray-500">Download formatted batch performance reports</p>
+                  </div>
+                  <div className="flex gap-2.5">
+                    <button
+                      onClick={() => {
+                        const curr = assessments.find((a) => a.id === selected);
+                        if (curr) exportAssessmentToExcel(curr, leaderboard);
+                      }}
+                      className="px-3.5 py-2 rounded-xl bg-emerald-600 hover:bg-emerald-700 text-white font-semibold text-xs flex items-center gap-1.5 shadow-sm transition-smooth"
+                    >
+                      <FileSpreadsheet size={14} /> Export Excel
+                    </button>
+                    <button
+                      onClick={() => {
+                        const curr = assessments.find((a) => a.id === selected);
+                        if (curr) exportAssessmentPdf(curr, leaderboard);
+                      }}
+                      className="px-3.5 py-2 rounded-xl bg-indigo-600 hover:bg-indigo-700 text-white font-semibold text-xs flex items-center gap-1.5 shadow-sm transition-smooth"
+                    >
+                      <FileText size={14} /> Export PDF
+                    </button>
+                  </div>
+                </div>
               </div>
             )}
 

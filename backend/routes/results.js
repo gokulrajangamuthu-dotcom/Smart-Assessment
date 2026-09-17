@@ -257,6 +257,24 @@ router.get('/streak', verifyToken, studentOnly, async (req, res) => {
   }
 });
 
+// ---------- FACULTY/ADMIN: FULL RESULTS FOR ONE ASSESSMENT (FOR REPORTS & EXPORTS) ----------
+router.get('/assessment/:assessmentId', verifyToken, async (req, res) => {
+  try {
+    const { assessmentId } = req.params;
+
+    const { data: results, error } = await supabase
+      .from('results')
+      .select('id, student_id, score, total_marks, rank, correct_count, wrong_count, attempts_used, submitted_at, students(id, name, register_no, department_id, departments(id, name, code))')
+      .eq('assessment_id', assessmentId)
+      .order('rank', { ascending: true });
+
+    if (error) throw error;
+    res.json({ results: results || [] });
+  } catch (err) {
+    res.status(500).json({ error: friendlyErrorMessage(err) });
+  }
+});
+
 // ---------- FACULTY/STUDENT: LEADERBOARD FOR ONE ASSESSMENT ----------
 router.get('/leaderboard/:assessmentId', verifyToken, async (req, res) => {
   try {

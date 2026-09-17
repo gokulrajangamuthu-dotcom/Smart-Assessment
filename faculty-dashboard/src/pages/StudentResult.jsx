@@ -1,7 +1,9 @@
 import { useState } from 'react';
 import { useLocation, useNavigate } from 'react-router-dom';
+import { Download, FileText } from 'lucide-react';
 import studentApi from '../api/studentClient';
 import AnimatedCounter from '../components/AnimatedCounter';
+import { exportStudentScorecardPdf } from '../utils/exportPdf';
 
 const CONFETTI_COLORS = ['#2FA84F', '#1F4E78', '#F5A623', '#E85D75', '#7C6FE0'];
 
@@ -30,6 +32,7 @@ export default function StudentResult() {
   const { state } = useLocation();
   const navigate = useNavigate();
   const [finalizing, setFinalizing] = useState(false);
+  const [downloadingPdf, setDownloadingPdf] = useState(false);
 
   if (!state) {
     navigate('/student/assessments');
@@ -45,6 +48,26 @@ export default function StudentResult() {
   const canChooseReattempt =
     reattempt?.enabled && !result.locked_final && (reattempt?.attempts_remaining || 0) > 0;
 
+  const handleDownloadScorecard = async () => {
+    setDownloadingPdf(true);
+    try {
+      // Grab full student profile / assessment details if available
+      const profileRes = await studentApi.get('/students/me').catch(() => null);
+      const studentData = profileRes?.data || {};
+
+      const fullResult = {
+        ...result,
+        students: studentData,
+      };
+      exportStudentScorecardPdf(fullResult, { total_marks: result.total_marks });
+    } catch (err) {
+      console.error(err);
+      exportStudentScorecardPdf(result, { total_marks: result.total_marks });
+    } finally {
+      setDownloadingPdf(false);
+    }
+  };
+
   const handleViewSolutions = async () => {
     if (canChooseReattempt) {
       // Viewing solutions while a reattempt choice is still open finalizes this score
@@ -52,7 +75,6 @@ export default function StudentResult() {
       try {
         await studentApi.post(`/results/finalize/${result.assessment_id}`);
       } catch (err) {
-        // Even if this fails, still let them view solutions — not a blocking error
         console.error(err);
       } finally {
         setFinalizing(false);
@@ -79,7 +101,7 @@ export default function StudentResult() {
           <p style={styles.autoNote} className="animate-fade-in">⏱ Auto-submitted — time ran out.</p>
         )}
         {autoSubmitReason === 'violations' && (
-          <p style={styles.autoNote} className="animate-fade-in">🚫 Auto-submitted — too many tab switches detected.</p>
+          <p style={styles.autoNote} className="animate-fade-in">🚫 Auto-submitted — security violations logged.</p>
         )}
 
         <div style={styles.scoreCard} className="animate-scale-in">
@@ -114,8 +136,17 @@ export default function StudentResult() {
         )}
 
         <button
+          onClick={handleDownloadScorecard}
+          disabled={downloadingPdf}
+          className="w-full py-3 mb-2.5 rounded-xl bg-indigo-600 hover:bg-indigo-700 text-white font-semibold text-xs flex items-center justify-center gap-2 shadow-md transition-smooth"
+        >
+          <FileText size={15} />
+          {downloadingPdf ? 'Generating PDF Scorecard...' : 'Download Scorecard PDF'}
+        </button>
+
+        <button
           style={{ ...styles.button, background: '#1F4E78', marginBottom: '10px' }}
-          className="transition-smooth hover:shadow-lg hover:-translate-y-0.5"
+          className="transition-smooth hover:shadow-lg hover:-translate-y-0.5 text-xs"
           onClick={handleViewSolutions}
           disabled={finalizing}
         >
@@ -125,14 +156,14 @@ export default function StudentResult() {
         {canChooseReattempt && (
           <button
             style={{ ...styles.button, background: '#e67e22', marginBottom: '10px' }}
-            className="transition-smooth hover:shadow-lg hover:-translate-y-0.5"
+            className="transition-smooth hover:shadow-lg hover:-translate-y-0.5 text-xs"
             onClick={handleReattempt}
           >
             Reattempt ({reattempt.attempts_remaining} left)
           </button>
         )}
 
-        <button style={styles.button} className="transition-smooth hover:shadow-lg hover:-translate-y-0.5" onClick={() => navigate('/student/assessments')}>
+        <button style={styles.button} className="transition-smooth hover:shadow-lg hover:-translate-y-0.5 text-xs" onClick={() => navigate('/student/assessments')}>
           Back to Assessments
         </button>
       </div>

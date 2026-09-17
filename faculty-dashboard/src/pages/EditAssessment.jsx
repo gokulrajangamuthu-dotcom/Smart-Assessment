@@ -1,7 +1,8 @@
 import { useEffect, useState } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
-import { Pencil } from 'lucide-react';
+import { Pencil, Sparkles } from 'lucide-react';
 import api from '../api/client';
+import AiQuestionModal from '../components/AiQuestionModal';
 
 export default function EditAssessment() {
   const { id } = useParams();
@@ -23,6 +24,7 @@ export default function EditAssessment() {
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
   const [uploading, setUploading] = useState(false);
+  const [showAiModal, setShowAiModal] = useState(false);
   const [error, setError] = useState('');
   const [message, setMessage] = useState('');
   const [uploadMessage, setUploadMessage] = useState('');
@@ -228,20 +230,44 @@ export default function EditAssessment() {
 
           {uploadMessage && <p className="text-success text-sm">{uploadMessage}</p>}
 
-          <form onSubmit={handleReplaceQuestions} className="space-y-3">
-            <input
-              type="file"
-              accept=".xlsx,.xls"
-              onChange={(e) => setFile(e.target.files[0])}
-              className="w-full border border-gray-200 rounded-xl px-3 py-2"
-            />
-            <button type="submit" disabled={uploading || !file}
-              className="bg-success text-white px-5 py-2.5 rounded-xl font-semibold hover:opacity-90 hover:shadow-lg hover:-translate-y-0.5 transition-smooth disabled:opacity-50">
-              {uploading ? 'Uploading...' : 'Replace Questions'}
+          <div className="flex flex-wrap gap-3 pt-2">
+            <button
+              type="button"
+              onClick={() => setShowAiModal(true)}
+              className="bg-gradient-to-r from-indigo-600 to-purple-600 text-white px-5 py-2.5 rounded-xl font-semibold hover:opacity-90 shadow-md shadow-indigo-100 transition-smooth text-sm flex items-center gap-2"
+            >
+              <Sparkles size={16} />
+              Generate / Add with AI
             </button>
-          </form>
+          </div>
+
+          <div className="border-t border-gray-100 pt-3">
+            <p className="text-xs font-semibold text-gray-500 uppercase tracking-wider mb-2">Or Upload Excel Sheet</p>
+            <form onSubmit={handleReplaceQuestions} className="space-y-3">
+              <input
+                type="file"
+                accept=".xlsx,.xls"
+                onChange={(e) => setFile(e.target.files[0])}
+                className="w-full border border-gray-200 rounded-xl px-3 py-2 text-sm"
+              />
+              <button type="submit" disabled={uploading || !file}
+                className="bg-success text-white px-5 py-2.5 rounded-xl font-semibold hover:opacity-90 transition-smooth disabled:opacity-50 text-sm">
+                {uploading ? 'Uploading...' : 'Replace Questions via Excel'}
+              </button>
+            </form>
+          </div>
         </div>
       </div>
+
+      <AiQuestionModal
+        isOpen={showAiModal}
+        onClose={() => setShowAiModal(false)}
+        assessmentId={id}
+        onQuestionsSaved={(res) => {
+          setUploadMessage(res.message || 'Questions updated successfully!');
+          loadAssessment();
+        }}
+      />
       </div>
     </div>
   );

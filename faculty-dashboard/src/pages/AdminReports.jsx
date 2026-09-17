@@ -1,9 +1,11 @@
 import { useEffect, useMemo, useState } from 'react';
-import { FileBarChart, Download, ChevronDown, ChevronUp, Search } from 'lucide-react';
+import { FileBarChart, Download, ChevronDown, ChevronUp, Search, FileSpreadsheet, FileText } from 'lucide-react';
 import api from '../api/client';
 import EmptyState from '../components/EmptyState';
 import StatusBadge from '../components/StatusBadge';
 import { downloadBlobResponse } from '../utils/download';
+import { exportAssessmentToExcel } from '../utils/exportExcel';
+import { exportAssessmentPdf } from '../utils/exportPdf';
 
 export default function AdminReports() {
   const [assessments, setAssessments] = useState([]);
@@ -55,8 +57,37 @@ export default function AdminReports() {
     }
   };
 
-  const handleDownload = async (assessment) => {
-    setDownloadingId(assessment.id);
+  const fetchAssessmentResults = async (assessmentId) => {
+    const res = await api.get(`/results/assessment/${assessmentId}`);
+    return res.data?.results || res.data || [];
+  };
+
+  const handleExportExcel = async (assessment) => {
+    setDownloadingId(`excel-${assessment.id}`);
+    try {
+      const studentResults = await fetchAssessmentResults(assessment.id);
+      exportAssessmentToExcel(assessment, studentResults);
+    } catch (err) {
+      alert(err.response?.data?.error || 'Failed to export Excel report');
+    } finally {
+      setDownloadingId(null);
+    }
+  };
+
+  const handleExportPdf = async (assessment) => {
+    setDownloadingId(`pdf-${assessment.id}`);
+    try {
+      const studentResults = await fetchAssessmentResults(assessment.id);
+      exportAssessmentPdf(assessment, studentResults);
+    } catch (err) {
+      alert(err.response?.data?.error || 'Failed to export PDF report');
+    } finally {
+      setDownloadingId(null);
+    }
+  };
+
+  const handleDownloadCsv = async (assessment) => {
+    setDownloadingId(`csv-${assessment.id}`);
     try {
       const res = await api.get(`/results/export/${assessment.id}`, { responseType: 'blob' });
       downloadBlobResponse(res, `${assessment.title}-results.csv`);
@@ -120,14 +151,34 @@ export default function AdminReports() {
                     {a.departments?.code || 'No dept'} · by {a.faculty?.name || 'Unknown'} · {new Date(a.scheduled_date).toLocaleDateString()}
                   </p>
                 </div>
-                <div className="flex items-center gap-2 shrink-0">
+                <div className="flex items-center gap-2 shrink-0 flex-wrap">
                   <button
-                    onClick={() => handleDownload(a)}
-                    disabled={downloadingId === a.id}
-                    className="flex items-center gap-1.5 text-xs font-bold bg-primary text-white px-3 py-2 rounded-xl hover:shadow-md hover:-translate-y-0.5 transition-smooth disabled:opacity-50"
+                    onClick={() => handleExportExcel(a)}
+                    disabled={downloadingId === `excel-${a.id}`}
+                    className="flex items-center gap-1.5 text-xs font-bold bg-emerald-600 hover:bg-emerald-700 text-white px-3 py-2 rounded-xl hover:shadow-md hover:-translate-y-0.5 transition-smooth disabled:opacity-50"
+                    title="Export Batch Excel Spreadsheet"
                   >
-                    <Download size={13} /> {downloadingId === a.id ? 'Downloading...' : 'CSV'}
+                    <FileSpreadsheet size={13} /> {downloadingId === `excel-${a.id}` ? 'Exporting...' : 'Excel'}
                   </button>
+
+                  <button
+                    onClick={() => handleExportPdf(a)}
+                    disabled={downloadingId === `pdf-${a.id}`}
+                    className="flex items-center gap-1.5 text-xs font-bold bg-indigo-600 hover:bg-indigo-700 text-white px-3 py-2 rounded-xl hover:shadow-md hover:-translate-y-0.5 transition-smooth disabled:opacity-50"
+                    title="Export Batch Evaluation PDF"
+                  >
+                    <FileText size={13} /> {downloadingId === `pdf-${a.id}` ? 'Exporting...' : 'PDF'}
+                  </button>
+
+                  <button
+                    onClick={() => handleDownloadCsv(a)}
+                    disabled={downloadingId === `csv-${a.id}`}
+                    className="flex items-center gap-1.5 text-xs font-semibold bg-gray-100 hover:bg-gray-200 text-gray-700 px-2.5 py-2 rounded-xl transition-smooth disabled:opacity-50"
+                    title="Export CSV"
+                  >
+                    <Download size={13} /> CSV
+                  </button>
+
                   <button
                     onClick={() => toggleExpand(a.id)}
                     className="flex items-center gap-1 text-xs font-semibold text-gray-500 px-3 py-2 rounded-xl hover:bg-gray-100 transition-smooth"

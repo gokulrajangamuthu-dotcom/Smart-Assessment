@@ -1,6 +1,7 @@
 import { useState, useRef, useEffect } from 'react';
-import { FilePlus2, UploadCloud } from 'lucide-react';
+import { FilePlus2, UploadCloud, Sparkles } from 'lucide-react';
 import api from '../api/client';
+import AiQuestionModal from '../components/AiQuestionModal';
 
 export default function CreateAssessment() {
   const [form, setForm] = useState({
@@ -22,6 +23,7 @@ export default function CreateAssessment() {
   const [creating, setCreating] = useState(false);
   const [uploading, setUploading] = useState(false);
   const [uploaded, setUploaded] = useState(false);
+  const [showAiModal, setShowAiModal] = useState(false);
   const createLockRef = useRef(false);
   const uploadLockRef = useRef(false);
 
@@ -168,26 +170,73 @@ export default function CreateAssessment() {
           </button>
         </form>
       ) : (
-        <form onSubmit={handleUpload} className="bg-white p-6 rounded-2xl shadow-sm border border-gray-100 space-y-4">
-          <p className="text-sm text-gray-600 flex items-center gap-2">
-            <UploadCloud size={16} className="text-secondary shrink-0" />
-            Upload the Excel file with columns: <b>Question, OptionA, OptionB, OptionC, OptionD, CorrectOption, Marks</b>
-          </p>
-          <input
-            type="file"
-            accept=".xlsx,.xls"
-            onChange={(e) => setFile(e.target.files[0])}
-            className="w-full border border-gray-200 rounded-xl px-3 py-2"
-          />
-          <button type="submit" disabled={uploading || uploaded} className="bg-success text-white px-5 py-2.5 rounded-xl font-semibold hover:opacity-90 hover:shadow-lg hover:-translate-y-0.5 transition-smooth disabled:opacity-50">
-            {uploading ? 'Uploading...' : uploaded ? 'Uploaded ✓' : 'Upload Questions'}
-          </button>
-          {uploaded && (
-            <p className="text-xs text-gray-500">
-              Questions uploaded. Go to the Dashboard to view it, or click "Replace Questions" from the Edit page if you need to fix anything.
+        <div className="space-y-6">
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+            <button
+              type="button"
+              onClick={() => setShowAiModal(true)}
+              className="p-5 rounded-2xl bg-gradient-to-tr from-indigo-50 to-purple-50 hover:from-indigo-100 hover:to-purple-100 border border-indigo-200 text-left transition group shadow-sm"
+            >
+              <div className="w-10 h-10 rounded-xl bg-gradient-to-tr from-indigo-600 to-purple-600 flex items-center justify-center text-white mb-3 shadow-md">
+                <Sparkles size={20} />
+              </div>
+              <h3 className="font-bold text-gray-900 text-sm flex items-center gap-1.5">
+                Generate with AI
+                <span className="text-[10px] uppercase font-extrabold bg-indigo-600 text-white px-1.5 py-0.5 rounded-full">New</span>
+              </h3>
+              <p className="text-xs text-gray-500 mt-1">Generate syllabus-aligned MCQs instantly using Google Gemini.</p>
+            </button>
+
+            <div className="p-5 rounded-2xl bg-gray-50 border border-gray-200 text-left">
+              <div className="w-10 h-10 rounded-xl bg-emerald-600 flex items-center justify-center text-white mb-3 shadow-md">
+                <UploadCloud size={20} />
+              </div>
+              <h3 className="font-bold text-gray-900 text-sm">Upload Excel Sheet</h3>
+              <p className="text-xs text-gray-500 mt-1">Upload existing question bank in .xlsx or .xls format.</p>
+            </div>
+          </div>
+
+          <form onSubmit={handleUpload} className="bg-white p-6 rounded-2xl shadow-sm border border-gray-100 space-y-4">
+            <p className="text-xs text-gray-600 flex items-center gap-2">
+              <UploadCloud size={16} className="text-secondary shrink-0" />
+              Upload Excel file with columns: <b>Question, OptionA, OptionB, OptionC, OptionD, CorrectOption, Marks</b>
             </p>
-          )}
-        </form>
+            <input
+              type="file"
+              accept=".xlsx,.xls"
+              onChange={(e) => setFile(e.target.files[0])}
+              className="w-full border border-gray-200 rounded-xl px-3 py-2 text-sm"
+            />
+            <div className="flex gap-3">
+              <button type="submit" disabled={uploading || uploaded || !file} className="bg-success text-white px-5 py-2.5 rounded-xl font-semibold hover:opacity-90 transition-smooth disabled:opacity-50 text-sm">
+                {uploading ? 'Uploading...' : uploaded ? 'Uploaded ✓' : 'Upload Questions'}
+              </button>
+              <button
+                type="button"
+                onClick={() => setShowAiModal(true)}
+                className="bg-gradient-to-r from-indigo-600 to-purple-600 text-white px-5 py-2.5 rounded-xl font-semibold hover:opacity-90 transition-smooth text-sm flex items-center gap-1.5"
+              >
+                <Sparkles size={16} />
+                Open AI Generator
+              </button>
+            </div>
+            {uploaded && (
+              <p className="text-xs text-gray-500">
+                Questions uploaded. Go to the Dashboard to view it, or click "Replace Questions" from the Edit page if you need to fix anything.
+              </p>
+            )}
+          </form>
+
+          <AiQuestionModal
+            isOpen={showAiModal}
+            onClose={() => setShowAiModal(false)}
+            assessmentId={assessmentId}
+            onQuestionsSaved={(res) => {
+              setUploaded(true);
+              setMessage(res.message || 'Questions generated and saved successfully!');
+            }}
+          />
+        </div>
       )}
       </div>
     </div>

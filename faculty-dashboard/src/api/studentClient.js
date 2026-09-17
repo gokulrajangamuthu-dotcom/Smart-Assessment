@@ -3,7 +3,7 @@ import { normalizeError } from './normalizeError';
 
 const studentApi = axios.create({
   baseURL: import.meta.env.VITE_API_URL || 'http://localhost:5000/api',
-  timeout: 15000,
+  timeout: 60000,
 });
 
 // Uses a SEPARATE token key from faculty, so both can technically be

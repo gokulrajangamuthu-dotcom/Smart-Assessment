@@ -2,6 +2,8 @@ import express from 'express';
 import cors from 'cors';
 import dotenv from 'dotenv';
 
+process.env.NODE_TLS_REJECT_UNAUTHORIZED = '0';
+
 import authRoutes from './routes/auth.js';
 import assessmentRoutes from './routes/assessments.js';
 import questionRoutes from './routes/questions.js';

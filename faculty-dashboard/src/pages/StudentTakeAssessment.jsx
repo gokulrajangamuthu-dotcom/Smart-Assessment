@@ -1,5 +1,6 @@
 import { useEffect, useState, useRef } from 'react';
 import { useParams, useNavigate, useLocation } from 'react-router-dom';
+import { ShieldAlert, Maximize, AlertTriangle, Lock, CheckCircle2 } from 'lucide-react';
 import studentApi from '../api/studentClient';
 
 export default function StudentTakeAssessment() {
@@ -12,22 +13,32 @@ export default function StudentTakeAssessment() {
   const [timeLeft, setTimeLeft] = useState(0);
   const [submitting, setSubmitting] = useState(false);
   const [violationCount, setViolationCount] = useState(0);
+  const [violationModal, setViolationModal] = useState({ show: false, reason: '' });
+  const [isFullscreen, setIsFullscreen] = useState(false);
+
   const timerRef = useRef(null);
   const submittedRef = useRef(false);
   const violationCountRef = useRef(0);
   const wasHiddenRef = useRef(false);
   const MAX_VIOLATIONS = 3;
 
+  // Request fullscreen
+  const enterFullscreen = () => {
+    const elem = document.documentElement;
+    if (elem.requestFullscreen) {
+      elem.requestFullscreen().catch(() => {});
+    } else if (elem.webkitRequestFullscreen) {
+      elem.webkitRequestFullscreen();
+    } else if (elem.msRequestFullscreen) {
+      elem.msRequestFullscreen();
+    }
+  };
+
   useEffect(() => {
     studentApi.get(`/assessments/${assessmentId}`).then((res) => {
       const cameViaReattemptButton = location.state?.viaReattempt;
       const hasExistingAttempt = !!res.data.my_result;
 
-      // A result already exists for this assessment, but this page wasn't
-      // reached through the "Reattempt" button on the Result page — most
-      // likely the browser Back button. Don't let that count as a reattempt;
-      // lock in whatever score they already have and send them straight back
-      // to the assessments list, no popup needed.
       if (hasExistingAttempt && !cameViaReattemptButton) {
         studentApi.post(`/results/finalize/${assessmentId}`).catch(() => {});
         navigate('/student/assessments', { replace: true });
@@ -43,11 +54,11 @@ export default function StudentTakeAssessment() {
       } else if (!err.response?.data?.already_completed) {
         alert('Failed to load assessment');
       }
-      // already_completed case: no popup, just quietly send them back
       navigate('/student/assessments', { replace: true });
     });
   }, [assessmentId]);
 
+  // Main countdown timer
   useEffect(() => {
     if (!assessment) return;
     timerRef.current = setInterval(() => {
@@ -64,32 +75,89 @@ export default function StudentTakeAssessment() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [assessment]);
 
-  // Tab-switch detection. If the student switches to another browser tab and
-  // comes back, that's counted as one violation. After MAX_VIOLATIONS, the
-  // test is auto-submitted — this discourages looking things up mid-test.
+  // Integrity Tracker: Fullscreen, Tab-switch, Window blur, Shortcuts & Copy-Paste prevention
   useEffect(() => {
     if (!assessment) return;
 
+    const triggerViolation = (reason) => {
+      if (submittedRef.current) return;
+      violationCountRef.current += 1;
+      const count = violationCountRef.current;
+      setViolationCount(count);
+
+      if (count >= MAX_VIOLATIONS) {
+        handleSubmit(false, true);
+      } else {
+        setViolationModal({
+          show: true,
+          reason: reason || 'Focus lost from assessment window.',
+        });
+      }
+    };
+
     const handleVisibilityChange = () => {
       if (submittedRef.current) return;
-
       if (document.hidden) {
         wasHiddenRef.current = true;
       } else if (wasHiddenRef.current) {
         wasHiddenRef.current = false;
-        violationCountRef.current += 1;
-        setViolationCount(violationCountRef.current);
-
-        if (violationCountRef.current >= MAX_VIOLATIONS) {
-          handleSubmit(false, true);
-        }
-        // No popup here on purpose — the on-screen warning banner (below the
-        // timer) already shows the updated count without interrupting the student.
+        triggerViolation('Tab switch or window minimized detected');
       }
     };
 
+    const handleWindowBlur = () => {
+      if (submittedRef.current) return;
+      // Slight debounce to avoid firing simultaneously with visibilitychange
+      setTimeout(() => {
+        if (!document.hasFocus() && !submittedRef.current) {
+          triggerViolation('Window blur / secondary screen focus detected');
+        }
+      }, 300);
+    };
+
+    const handleFullscreenChange = () => {
+      const isCurrentlyFullscreen = Boolean(
+        document.fullscreenElement || document.webkitFullscreenElement || document.mozFullScreenElement || document.msFullscreenElement
+      );
+      setIsFullscreen(isCurrentlyFullscreen);
+      if (!isCurrentlyFullscreen && !submittedRef.current && violationCountRef.current < MAX_VIOLATIONS) {
+        triggerViolation('Exited fullscreen mode');
+      }
+    };
+
+    const handleKeyDown = (e) => {
+      // Prevent common shortcuts: Ctrl+C, Ctrl+V, Ctrl+U, Ctrl+Shift+I, F12, PrintScreen
+      if (
+        (e.ctrlKey && ['c', 'v', 'x', 'u', 'a', 'p'].includes(e.key.toLowerCase())) ||
+        e.key === 'F12' ||
+        e.key === 'PrintScreen'
+      ) {
+        e.preventDefault();
+      }
+    };
+
+    const handleContextMenu = (e) => e.preventDefault();
+    const handleCopyCutPaste = (e) => e.preventDefault();
+
     document.addEventListener('visibilitychange', handleVisibilityChange);
-    return () => document.removeEventListener('visibilitychange', handleVisibilityChange);
+    window.addEventListener('blur', handleWindowBlur);
+    document.addEventListener('fullscreenchange', handleFullscreenChange);
+    document.addEventListener('keydown', handleKeyDown);
+    document.addEventListener('contextmenu', handleContextMenu);
+    document.addEventListener('copy', handleCopyCutPaste);
+    document.addEventListener('cut', handleCopyCutPaste);
+    document.addEventListener('paste', handleCopyCutPaste);
+
+    return () => {
+      document.removeEventListener('visibilitychange', handleVisibilityChange);
+      window.removeEventListener('blur', handleWindowBlur);
+      document.removeEventListener('fullscreenchange', handleFullscreenChange);
+      document.removeEventListener('keydown', handleKeyDown);
+      document.removeEventListener('contextmenu', handleContextMenu);
+      document.removeEventListener('copy', handleCopyCutPaste);
+      document.removeEventListener('cut', handleCopyCutPaste);
+      document.removeEventListener('paste', handleCopyCutPaste);
+    };
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [assessment]);
 
@@ -102,11 +170,7 @@ export default function StudentTakeAssessment() {
     submittedRef.current = true;
     clearInterval(timerRef.current);
 
-    // No alert() here on purpose — calling a blocking alert() from inside a
-    // window blur/focus handler can freeze the tab-switch flow in some browsers.
-    // Instead we pass the reason along and show a plain banner on the Result page.
     const autoSubmitReason = isTimeUp ? 'time_up' : isViolation ? 'violations' : null;
-
     setSubmitting(true);
 
     const answersArray = Object.entries(answers).map(([question_id, selected_option]) => ({
@@ -115,7 +179,17 @@ export default function StudentTakeAssessment() {
     }));
 
     try {
-      const res = await studentApi.post('/results/submit', { assessment_id: assessmentId, answers: answersArray });
+      const res = await studentApi.post('/results/submit', {
+        assessment_id: assessmentId,
+        answers: answersArray,
+        violations: violationCountRef.current,
+      });
+
+      // Exit fullscreen safely if active
+      if (document.fullscreenElement && document.exitFullscreen) {
+        document.exitFullscreen().catch(() => {});
+      }
+
       navigate('/student/result', {
         state: {
           result: res.data.result,
@@ -133,16 +207,14 @@ export default function StudentTakeAssessment() {
 
   if (!assessment) {
     return (
-      <div style={styles.page}>
-        <div style={{ ...styles.timerBar, opacity: 0.6 }}>
-          <span>⏱ --:--</span>
-        </div>
-        <div style={styles.body}>
-          <div className="skeleton" style={{ height: '24px', width: '90%', marginBottom: '24px' }} />
-          <div className="skeleton" style={{ height: '48px', width: '100%', marginBottom: '12px' }} />
-          <div className="skeleton" style={{ height: '48px', width: '100%', marginBottom: '12px' }} />
-          <div className="skeleton" style={{ height: '48px', width: '100%', marginBottom: '12px' }} />
-          <div className="skeleton" style={{ height: '48px', width: '100%' }} />
+      <div className="min-h-screen bg-slate-50 flex flex-col justify-center items-center p-6">
+        <div className="w-full max-w-md bg-white p-8 rounded-3xl shadow-sm border border-slate-100 text-center space-y-4">
+          <div className="w-12 h-12 rounded-2xl bg-indigo-50 flex items-center justify-center text-indigo-600 mx-auto animate-pulse">
+            <Lock size={24} />
+          </div>
+          <h2 className="text-lg font-bold text-slate-800">Preparing Secure Assessment...</h2>
+          <div className="skeleton h-4 w-3/4 mx-auto rounded-full" />
+          <div className="skeleton h-4 w-1/2 mx-auto rounded-full" />
         </div>
       </div>
     );
@@ -154,38 +226,54 @@ export default function StudentTakeAssessment() {
   const isTimeCritical = timeLeft <= 60 && timeLeft > 0;
 
   return (
-    <div style={styles.page}>
-      {/* Sticky Top Bar */}
-      <div
-        style={styles.timerBar}
-        className={`sticky top-0 z-20 shadow-sm ${isTimeCritical ? 'animate-timer-danger' : ''}`}
-      >
-        <span className="text-sm sm:text-base font-bold flex items-center gap-1.5">
-          ⏱ {minutes}:{seconds.toString().padStart(2, '0')}
-        </span>
-        <span className="text-xs sm:text-sm font-semibold bg-white/15 px-3 py-1 rounded-full">
-          Q {currentIndex + 1} of {assessment.questions.length}
-        </span>
+    <div className="min-h-screen bg-slate-50 text-slate-800 flex flex-col select-none" onContextMenu={(e) => e.preventDefault()}>
+      {/* Sticky Security & Timer Header */}
+      <div className="sticky top-0 z-30 bg-slate-900 text-white px-4 sm:px-8 py-3 shadow-md flex items-center justify-between">
+        <div className="flex items-center gap-3">
+          <div className="flex items-center gap-1.5 px-3 py-1 rounded-full bg-emerald-500/20 text-emerald-400 text-xs font-semibold border border-emerald-500/30">
+            <span className="w-2 h-2 rounded-full bg-emerald-400 animate-ping" />
+            Proctored Session
+          </div>
+          {!isFullscreen && (
+            <button
+              onClick={enterFullscreen}
+              className="hidden sm:flex items-center gap-1 px-3 py-1 rounded-full bg-indigo-600 hover:bg-indigo-700 text-xs font-semibold transition"
+            >
+              <Maximize size={12} />
+              Enable Fullscreen
+            </button>
+          )}
+        </div>
+
+        <div className="flex items-center gap-3 sm:gap-6">
+          <div className={`px-4 py-1.5 rounded-xl font-mono text-sm sm:text-base font-bold flex items-center gap-1.5 ${
+            isTimeCritical ? 'bg-rose-600 text-white animate-pulse' : 'bg-slate-800 text-slate-100'
+          }`}>
+            ⏱ {minutes}:{seconds.toString().padStart(2, '0')}
+          </div>
+          <span className="text-xs sm:text-sm font-semibold text-slate-300 bg-slate-800 px-3 py-1 rounded-xl">
+            Q {currentIndex + 1} / {assessment.questions.length}
+          </span>
+        </div>
       </div>
 
+      {/* Warning Banners */}
       {assessment.negative_marking && (
-        <div style={styles.negativeBanner} className="animate-fade-in text-xs sm:text-sm">
-          ⚠️ Negative marking enabled: -{assessment.negative_mark_value} mark per wrong answer.
+        <div className="bg-amber-50 text-amber-900 border-b border-amber-200 px-4 py-2 text-center text-xs sm:text-sm font-semibold flex items-center justify-center gap-2">
+          <AlertTriangle size={15} className="text-amber-600" />
+          Negative marking active: -{assessment.negative_mark_value} mark per wrong answer.
         </div>
       )}
 
       {violationCount > 0 && (
-        <div style={styles.violationBanner} className="animate-fade-in animate-soft-pulse text-xs sm:text-sm">
-          🚫 Tab-switch warning {violationCount}/{MAX_VIOLATIONS} — one more and your test auto-submits.
+        <div className="bg-rose-600 text-white px-4 py-2 text-center text-xs sm:text-sm font-bold animate-pulse flex items-center justify-center gap-2 shadow-inner">
+          <ShieldAlert size={16} />
+          Security Warning: Violation {violationCount}/{MAX_VIOLATIONS} logged! Reaching {MAX_VIOLATIONS} will immediately submit your test.
         </div>
       )}
 
-      <div style={styles.infoBanner} className="text-[11px] sm:text-xs">
-        🔒 Tab switching is monitored. Switching away {MAX_VIOLATIONS} times will auto-submit.
-      </div>
-
-      {/* Horizontally scrollable Question Navigator */}
-      <div className="w-full max-w-[640px] mx-auto px-4 py-3 overflow-x-auto no-scrollbar border-b border-gray-100 flex items-center gap-2">
+      {/* Question Number Pills Navigator */}
+      <div className="w-full max-w-3xl mx-auto px-4 py-4 overflow-x-auto no-scrollbar flex items-center gap-2 border-b border-slate-200/70">
         {assessment.questions.map((q, i) => {
           const isAnswered = answers[q.id] !== undefined;
           const isCurrent = i === currentIndex;
@@ -193,13 +281,13 @@ export default function StudentTakeAssessment() {
             <button
               key={q.id}
               onClick={() => setCurrentIndex(i)}
-              className={`
-                min-w-[34px] h-[34px] rounded-full text-xs font-bold transition-smooth flex items-center justify-center shrink-0
-                ${isCurrent ? 'ring-2 ring-primary ring-offset-2 bg-primary text-white scale-105' : ''}
-                ${!isCurrent && isAnswered ? 'bg-emerald-600 text-white' : ''}
-                ${!isCurrent && !isAnswered ? 'bg-gray-100 text-gray-600 hover:bg-gray-200' : ''}
-              `}
-              title={`Question ${i + 1} ${isAnswered ? '(Answered)' : ''}`}
+              className={`min-w-[36px] h-[36px] rounded-xl text-xs font-bold transition-all flex items-center justify-center shrink-0 ${
+                isCurrent
+                  ? 'bg-indigo-600 text-white shadow-md shadow-indigo-200 scale-105'
+                  : isAnswered
+                  ? 'bg-emerald-600 text-white'
+                  : 'bg-white text-slate-700 border border-slate-200 hover:bg-slate-100'
+              }`}
             >
               {i + 1}
             </button>
@@ -207,21 +295,25 @@ export default function StudentTakeAssessment() {
         })}
       </div>
 
-      {/* Main Question Body */}
-      <div className="flex-1 w-full max-w-[640px] mx-auto px-4 py-5 sm:py-6">
-        <div className="bg-white rounded-2xl p-5 sm:p-6 shadow-sm border border-gray-100 mb-6 animate-fade-in-up">
-          <div className="flex items-center justify-between gap-2 mb-3">
-            <span className="text-xs font-bold text-primary uppercase tracking-wider">Question {currentIndex + 1}</span>
-            <span className="text-xs font-semibold text-gray-500">{question.marks || 1} Mark{(question.marks || 1) > 1 ? 's' : ''}</span>
+      {/* Main Question Card */}
+      <div className="flex-1 w-full max-w-3xl mx-auto px-4 py-6 sm:py-8 space-y-6">
+        <div className="bg-white rounded-3xl p-6 sm:p-8 shadow-sm border border-slate-200/80 space-y-4">
+          <div className="flex items-center justify-between border-b border-slate-100 pb-3">
+            <span className="text-xs font-bold text-indigo-600 uppercase tracking-widest">
+              Question {currentIndex + 1}
+            </span>
+            <span className="text-xs font-bold px-2.5 py-1 rounded-lg bg-slate-100 text-slate-700">
+              {question.marks || 1} Mark{(question.marks || 1) > 1 ? 's' : ''}
+            </span>
           </div>
-          <p className="text-base sm:text-lg font-semibold text-gray-900 leading-relaxed">
+          <p className="text-base sm:text-lg font-medium text-slate-900 leading-relaxed">
             {question.question_text}
           </p>
         </div>
 
         {/* Options */}
         <div className="space-y-3">
-          {['A', 'B', 'C', 'D'].map((opt, i) => {
+          {['A', 'B', 'C', 'D'].map((opt) => {
             const isSelected = answers[question.id] === opt;
             const optText = question[`option_${opt.toLowerCase()}`];
             if (!optText && optText !== 0) return null;
@@ -230,37 +322,34 @@ export default function StudentTakeAssessment() {
               <div
                 key={`${question.id}-${opt}`}
                 onClick={() => selectOption(question.id, opt)}
-                className={`
-                  w-full p-4 rounded-xl border text-sm sm:text-base font-medium transition-all duration-150 cursor-pointer flex items-center justify-between gap-3 active:scale-[0.99]
-                  ${isSelected
-                    ? 'bg-primary text-white border-primary shadow-md'
-                    : 'bg-white text-gray-800 border-gray-200 hover:border-primary/50 hover:bg-slate-50 shadow-sm'
-                  }
-                `}
+                className={`p-4 sm:p-5 rounded-2xl border text-sm sm:text-base font-medium transition-all duration-150 cursor-pointer flex items-center justify-between gap-3 active:scale-[0.99] ${
+                  isSelected
+                    ? 'bg-indigo-600 text-white border-indigo-600 shadow-lg shadow-indigo-200'
+                    : 'bg-white text-slate-800 border-slate-200 hover:border-indigo-400 hover:bg-indigo-50/20 shadow-sm'
+                }`}
               >
-                <div className="flex items-start gap-3">
-                  <span className={`
-                    w-6 h-6 rounded-full flex items-center justify-center text-xs font-bold shrink-0 mt-0.5
-                    ${isSelected ? 'bg-white/20 text-white' : 'bg-gray-100 text-gray-600'}
-                  `}>
+                <div className="flex items-center gap-3.5">
+                  <span className={`w-8 h-8 rounded-xl flex items-center justify-center text-xs font-bold shrink-0 ${
+                    isSelected ? 'bg-white/20 text-white' : 'bg-slate-100 text-slate-700'
+                  }`}>
                     {opt}
                   </span>
                   <span className="leading-snug">{optText}</span>
                 </div>
-                {isSelected && <span className="font-bold text-base shrink-0">✓</span>}
+                {isSelected && <CheckCircle2 size={20} className="shrink-0 text-white" />}
               </div>
             );
           })}
         </div>
       </div>
 
-      {/* Sticky Bottom Actions Bar */}
-      <div className="sticky bottom-0 z-20 bg-white/95 backdrop-blur border-t border-gray-100 py-3 px-4 shadow-lg">
-        <div className="max-w-[640px] mx-auto flex items-center justify-between gap-3">
+      {/* Bottom Sticky Action Bar */}
+      <div className="sticky bottom-0 z-20 bg-white/95 backdrop-blur border-t border-slate-200 py-4 px-4 shadow-lg">
+        <div className="max-w-3xl mx-auto flex items-center justify-between gap-4">
           <button
             disabled={currentIndex === 0}
             onClick={() => setCurrentIndex((i) => i - 1)}
-            className="flex-1 py-3 px-4 rounded-xl bg-gray-100 hover:bg-gray-200 disabled:opacity-40 text-gray-700 text-sm font-semibold transition-smooth"
+            className="px-6 py-3 rounded-2xl bg-slate-100 hover:bg-slate-200 disabled:opacity-40 text-slate-700 text-sm font-semibold transition"
           >
             ← Previous
           </button>
@@ -268,7 +357,7 @@ export default function StudentTakeAssessment() {
           {currentIndex < assessment.questions.length - 1 ? (
             <button
               onClick={() => setCurrentIndex((i) => i + 1)}
-              className="flex-1 py-3 px-4 rounded-xl bg-primary hover:bg-blue-900 text-white text-sm font-semibold transition-smooth shadow-md"
+              className="px-8 py-3 rounded-2xl bg-indigo-600 hover:bg-indigo-700 text-white text-sm font-semibold transition shadow-md shadow-indigo-200"
             >
               Next →
             </button>
@@ -276,23 +365,43 @@ export default function StudentTakeAssessment() {
             <button
               onClick={() => handleSubmit(false)}
               disabled={submitting}
-              className="flex-1 py-3 px-4 rounded-xl bg-emerald-600 hover:bg-emerald-700 text-white text-sm font-semibold transition-smooth shadow-md disabled:opacity-60"
+              className="px-8 py-3 rounded-2xl bg-emerald-600 hover:bg-emerald-700 text-white text-sm font-semibold transition shadow-md shadow-emerald-200 disabled:opacity-60"
             >
-              {submitting ? 'Submitting...' : 'Submit Test ✓'}
+              {submitting ? 'Submitting...' : 'Finish & Submit Test ✓'}
             </button>
           )}
         </div>
       </div>
+
+      {/* Security Violation Modal */}
+      {violationModal.show && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/75 backdrop-blur-md animate-fade-in">
+          <div className="bg-white rounded-3xl max-w-md w-full p-6 text-center space-y-4 shadow-2xl border border-rose-100">
+            <div className="w-14 h-14 rounded-2xl bg-rose-100 text-rose-600 flex items-center justify-center mx-auto">
+              <ShieldAlert size={32} />
+            </div>
+            <div>
+              <h3 className="text-xl font-bold text-slate-900">Security Warning #{violationCount}</h3>
+              <p className="text-xs text-rose-600 font-semibold mt-1 uppercase tracking-wide">
+                {violationModal.reason}
+              </p>
+            </div>
+            <p className="text-xs text-slate-600 leading-relaxed">
+              Leaving the assessment screen, switching tabs, or exiting fullscreen is recorded. Reaching <b>{MAX_VIOLATIONS} violations</b> will instantly auto-submit your assessment.
+            </p>
+            <button
+              onClick={() => {
+                setViolationModal({ show: false, reason: '' });
+                enterFullscreen();
+              }}
+              className="w-full py-3 rounded-2xl bg-indigo-600 hover:bg-indigo-700 text-white text-sm font-bold shadow-lg shadow-indigo-200 transition"
+            >
+              I Understand, Resume Test
+            </button>
+          </div>
+        </div>
+      )}
     </div>
   );
 }
-
-const styles = {
-  page: { minHeight: '100vh', display: 'flex', flexDirection: 'column', background: '#f8fafc', color: '#1e293b', fontFamily: 'system-ui, sans-serif' },
-  center: { display: 'flex', alignItems: 'center', justifyContent: 'center', height: '100vh' },
-  timerBar: { background: '#1F4E78', color: '#fff', padding: '12px 16px', display: 'flex', justifyContent: 'space-between', alignItems: 'center', transition: 'background-color 0.3s ease' },
-  negativeBanner: { background: '#fdf3e0', color: '#8a5a00', padding: '6px 16px', fontWeight: '600', textAlign: 'center' },
-  violationBanner: { background: '#fdeceb', color: '#a83226', padding: '6px 16px', fontWeight: '700', textAlign: 'center' },
-  infoBanner: { background: '#eef2f7', color: '#5c6b7a', padding: '4px 16px', textAlign: 'center' },
-};
 

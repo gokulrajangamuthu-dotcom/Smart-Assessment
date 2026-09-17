@@ -8,8 +8,8 @@ export function normalizeError(error) {
       data: {
         error:
           error.code === 'ECONNABORTED'
-            ? 'The server took too long to respond. Please check your connection and try again.'
-            : 'Could not reach the server. Please check your connection and try again.',
+            ? 'The server took too long to respond. If using a free cloud server, it may be waking up—please try again in a few seconds.'
+            : 'Could not reach the server. Please check your backend connection and try again.',
       },
     };
   }
